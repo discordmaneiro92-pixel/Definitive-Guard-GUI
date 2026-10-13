@@ -1,0 +1,390 @@
+-- Evita duplicar a interface caso execute o script mais de uma vez
+local antigo_hub = game:GetService("CoreGui"):FindFirstChild("GuardScriptHub")
+if antigo_hub then antigo_hub:Destroy() end
+
+local GuardScriptHub = Instance.new("ScreenGui")
+GuardScriptHub.Name = "GuardScriptHub"
+GuardScriptHub.Parent = game:GetService("CoreGui")
+GuardScriptHub.ResetOnSpawn = false
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local UserInputService = game:GetService("UserInputService")
+local Teams = game:GetService("Teams")
+local RunService = game:GetService("RunService")
+
+----------------------------------------------------------------
+-- CONFIGURAÇÕES DOS CORES
+----------------------------------------------------------------
+local localDoDano = LocalPlayer:WaitForChild("leaderstats"):WaitForChild("Dano") 
+
+local listaArmas = {
+    {Nome = "SCAR-L", DanoNecessario = 30000},
+    {Nome = "G3", DanoNecessario = 75000},
+    {Nome = "M249", DanoNecessario = 250000},
+    {Nome = "Minigun", DanoNecessario = 1000000},
+}
+
+local RemoteEquip = game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("EquipGun")
+
+-- Estados das funções
+local autoBuyAtivado = false
+local aimbotAtivado = false
+local fovTamanhos = {50, 100, 150, 200, 0} -- Opções de tamanho (0 significa FOV infinito/Desativado o círculo)
+local fovIndex = 2 -- Começa em 100 por padrão
+local raioFOV = fovTamanhos[fovIndex]
+
+----------------------------------------------------------------
+-- CRIAÇÃO DO CÍRCULO DE FOV (DESENHO NA TELA)
+----------------------------------------------------------------
+local CirculoFOV = Drawing.new("Circle")
+CirculoFOV.Visible = false
+CirculoFOV.Color = Color3.fromRGB(255, 255, 255)
+CirculoFOV.Thickness = 1
+CirculoFOV.NumSides = 60
+CirculoFOV.Radius = raioFOV
+CirculoFOV.Filled = false
+
+----------------------------------------------------------------
+-- 1. FRAME PRINCIPAL (GUI GRANDE)
+----------------------------------------------------------------
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 650, 0, 420)
+MainFrame.Position = UDim2.new(0.5, -325, 0.5, -210)
+MainFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = GuardScriptHub
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 10)
+MainCorner.Parent = MainFrame
+
+-- Título
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(0, 300, 0, 40)
+Title.Position = UDim2.new(0, 175, 0, 15)
+Title.BackgroundTransparency = 1
+Title.Text = "GUARD SCRIPT HUB"
+Title.TextColor3 = Color3.fromRGB(235, 235, 240)
+Title.TextSize = 20
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = MainFrame
+
+----------------------------------------------------------------
+-- 2. BARRA LATERAL (SIDEBAR)
+----------------------------------------------------------------
+local SideBar = Instance.new("Frame")
+SideBar.Name = "SideBar"
+SideBar.Size = UDim2.new(0, 150, 1, 0)
+SideBar.BackgroundColor3 = Color3.fromRGB(18, 18, 20)
+SideBar.BorderSizePixel = 0
+SideBar.Parent = MainFrame
+
+local SideCorner = Instance.new("UICorner")
+SideCorner.CornerRadius = UDim.new(0, 10)
+SideCorner.Parent = SideBar
+
+local SideTitle = Instance.new("TextLabel")
+SideTitle.Size = UDim2.new(1, 0, 0, 60)
+SideTitle.BackgroundTransparency = 1
+SideTitle.Text = "🛡️ GUARD"
+SideTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+SideTitle.TextSize = 18
+SideTitle.Font = Enum.Font.GothamBold
+SideTitle.Parent = SideBar
+
+----------------------------------------------------------------
+-- 3. CONTAINER DE FUNÇÕES
+----------------------------------------------------------------
+local Container = Instance.new("Frame")
+Container.Name = "Container"
+Container.Size = UDim2.new(1, -170, 1, -80)
+Container.Position = UDim2.new(0, 160, 0, 70)
+Container.BackgroundTransparency = 1
+Container.Parent = MainFrame
+
+----------------------------------------------------------------
+-- 4. BOTÃO 1: AUTO BUY / EQUIP
+----------------------------------------------------------------
+local AutoBuyBtn = Instance.new("TextButton")
+AutoBuyBtn.Name = "AutoBuyBtn"
+AutoBuyBtn.Size = UDim2.new(0, 220, 0, 50)
+AutoBuyBtn.Position = UDim2.new(0, 10, 0, 10)
+AutoBuyBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 38)
+AutoBuyBtn.Text = "Auto Buy/Equip: OFF"
+AutoBuyBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+AutoBuyBtn.TextSize = 12
+AutoBuyBtn.Font = Enum.Font.GothamBold
+AutoBuyBtn.BorderSizePixel = 0
+AutoBuyBtn.Parent = Container
+
+local BtnCorner1 = Instance.new("UICorner")
+BtnCorner1.CornerRadius = UDim.new(0, 8)
+BtnCorner1.Parent = AutoBuyBtn
+
+local BtnStroke1 = Instance.new("UIStroke")
+BtnStroke1.Color = Color3.fromRGB(50, 50, 55)
+BtnStroke1.Thickness = 1
+BtnStroke1.Parent = AutoBuyBtn
+
+----------------------------------------------------------------
+-- 5. BOTÃO 2: AIMBOT
+----------------------------------------------------------------
+local AimbotBtn = Instance.new("TextButton")
+AimbotBtn.Name = "AimbotBtn"
+AimbotBtn.Size = UDim2.new(0, 220, 0, 50)
+AimbotBtn.Position = UDim2.new(0, 245, 0, 10)
+AimbotBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 38)
+AimbotBtn.Text = "Aimbot (Wallcheck): OFF"
+AimbotBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+AimbotBtn.TextSize = 12
+AimbotBtn.Font = Enum.Font.GothamBold
+AimbotBtn.BorderSizePixel = 0
+AimbotBtn.Parent = Container
+
+local BtnCorner2 = Instance.new("UICorner")
+BtnCorner2.CornerRadius = UDim.new(0, 8)
+BtnCorner2.Parent = AimbotBtn
+
+local BtnStroke2 = Instance.new("UIStroke")
+BtnStroke2.Color = Color3.fromRGB(50, 50, 55)
+BtnStroke2.Thickness = 1
+BtnStroke2.Parent = AimbotBtn
+
+----------------------------------------------------------------
+-- 6. BOTÃO 3: REGULADOR DE FOV
+----------------------------------------------------------------
+local FovBtn = Instance.new("TextButton")
+FovBtn.Name = "FovBtn"
+FovBtn.Size = UDim2.new(0, 220, 0, 50)
+FovBtn.Position = UDim2.new(0, 10, 0, 70) -- Posicionado na linha de baixo
+FovBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 38)
+FovBtn.Text = "Tamanho do FOV: " .. raioFOV
+FovBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+FovBtn.TextSize = 12
+FovBtn.Font = Enum.Font.GothamBold
+FovBtn.BorderSizePixel = 0
+FovBtn.Parent = Container
+
+local BtnCorner3 = Instance.new("UICorner")
+BtnCorner3.CornerRadius = UDim.new(0, 8)
+BtnCorner3.Parent = FovBtn
+
+local BtnStroke3 = Instance.new("UIStroke")
+BtnStroke3.Color = Color3.fromRGB(50, 50, 55)
+BtnStroke3.Thickness = 1
+BtnStroke3.Parent = FovBtn
+
+----------------------------------------------------------------
+-- LÓGICA DO AUTO BUY
+----------------------------------------------------------------
+local function equiparMelhorArma()
+    if not autoBuyAtivado then return end
+    local meuDano = localDoDano.Value
+    local melhorArmaDisponivel = nil
+    
+    for i = #listaArmas, 1, -1 do
+        if meuDano >= listaArmas[i].DanoNecessario then
+            melhorArmaDisponivel = listaArmas[i].Nome
+            break
+        end
+    end
+    
+    if melhorArmaDisponivel then
+        RemoteEquip:FireServer(melhorArmaDisponivel)
+    end
+end
+
+AutoBuyBtn.MouseButton1Click:Connect(function()
+    autoBuyAtivado = not autoBuyAtivado
+    if autoBuyAtivado then
+        AutoBuyBtn.Text = "Auto Buy/Equip: ON"
+        AutoBuyBtn.BackgroundColor3 = Color3.fromRGB(46, 117, 89)
+        BtnStroke1.Color = Color3.fromRGB(70, 160, 120)
+        equiparMelhorArma()
+    else
+        AutoBuyBtn.Text = "Auto Buy/Equip: OFF"
+        AutoBuyBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 38)
+        BtnStroke1.Color = Color3.fromRGB(50, 50, 55)
+    end
+end)
+
+localDoDano.Changed:Connect(function()
+    if autoBuyAtivado then equiparMelhorArma() end
+end)
+
+----------------------------------------------------------------
+-- LÓGICA DO WALLCHECK E FOV AIMBOT
+----------------------------------------------------------------
+
+-- Verifica se não há paredes bloqueando a visão da cabeça do alvo
+local function estaVisivel(posicaoAlvo, characterAlvo)
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("Head") then return false end
+    
+    local origem = Camera.CFrame.Position
+    local direcao = (posicaoAlvo - origem).Unit * (posicaoAlvo - origem).Magnitude
+    
+    local parametrosRaycast = RaycastParams.new()
+    parametrosRaycast.FilterType = Enum.RaycastFilterType.Exclude
+    -- Ignora você mesmo e o próprio personagem do SCP que estamos testando
+    parametrosRaycast.FilterDescendantsInstances = {LocalPlayer.Character, characterAlvo}
+    parametrosRaycast.IgnoreWater = true
+    
+    local resultado = workspace:Raycast(origem, direcao, parametrosRaycast)
+    
+    -- Se não bateu em nada (parede), significa que está livre/visível
+    return resultado == nil
+end
+
+-- Encontra o SCP mais próximo da MIRA do jogador (dentro do círculo de FOV)
+local function pegarSCPMaisProximoDaMira()
+    local menorDistanciaDaMira = math.huge
+    local alvoSelecionado = nil
+    local scpTeam = Teams:FindFirstChild("SCP")
+
+    if not scpTeam then return nil end
+
+    for _, jogador in ipairs(Players:GetPlayers()) do
+        if jogador ~= LocalPlayer and jogador.Team == scpTeam then
+            local char = jogador.Character
+            if char and char:FindFirstChild("Head") and char:FindFirstChildOfClass("Humanoid") then
+                if char.Humanoid.Health > 0 then
+                    -- Converte a posição 3D do SCP para a sua tela 2D
+                    local posicaoTela, visivelNaTela = Camera:WorldToViewportPoint(char.Head.Position)
+                    
+                    if visivelNaTela then
+                        -- Calcula a distância física em pixels entre o centro da tela e o SCP
+                        local centroTela = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                        local distanciaMira = (Vector2.new(posicaoTela.X, posicaoTela.Y) - centroTela).Magnitude
+                        
+- Verifica se o corte por círculo está ativo e se o alvo está dentro dele
+if raioFOV == 0 or distanciaMira <= raioFOV then
+if distanciaMira < menorDistanciaDaMira then
+-- Executa o Wallcheck para confirmar se não tem paredes no meio
+if estaVisivel(char.Head.Position, char) then
+menorDistanciaDaMira = distanciaMira
+alvoSelecionado = char.Head
+end
+end
+end
+end
+end
+end
+end
+end
+return alvoSelecionado
+end
+-- Botão de Aimbot (Alternar ON/OFF)
+AimbotBtn.MouseButton1Click:Connect(function()
+aimbotAtivado = not aimbotAtivado
+if aimbotAtivado then
+AimbotBtn.Text = "Aimbot (Wallcheck): ON"
+AimbotBtn.BackgroundColor3 = Color3.fromRGB(46, 117, 89)
+BtnStroke2.Color = Color3.fromRGB(70, 160, 120)
+if raioFOV > 0 then CirculoFOV.Visible = true end
+else
+AimbotBtn.Text = "Aimbot (Wallcheck): OFF"
+AimbotBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 38)
+BtnStroke2.Color = Color3.fromRGB(50, 50, 55)
+CirculoFOV.Visible = false
+end
+end)
+-- Botão Regulador de FOV (Trocar tamanhos)
+FovBtn.MouseButton1Click:Connect(function()
+fovIndex = fovIndex + 1
+if fovIndex > #fovTamanhos then fovIndex = 1 end
+raioFOV = fovTamanhos[fovIndex]
+CirculoFOV.Radius = raioFOV
+if raioFOV == 0 then
+FovBtn.Text = "Tamanho do FOV: Desativado"
+CirculoFOV.Visible = false
+else
+FovBtn.Text = "Tamanho do FOV: " .. raioFOV
+if aimbotAtivado then CirculoFOV.Visible = true end
+end
+end)
+-- Loop principal do Aimbot e atualização do Círculo na Tela
+RunService.RenderStepped:Connect(function()
+-- Atualiza a posição do círculo no centro exato da tela dinamicamente
+if CirculoFOV.Visible then
+CirculoFOV.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+end
+if aimbotAtivado then
+local apertado = UserInputService:IsMouseButtonPressed(Enum.MouseButton1) or UserInputService:IsMouseButtonPressed(Enum.MouseButton2)
+if apertado then
+local alvo = pegarSCPMaisProximoDaMira()
+if alvo then
+Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvo.Position)
+end
+end
+end
+end)
+
+-- SISTEMA DE MINIMIZAR E ARRASTAR
+
+local MinimizeBtn = Instance.new("TextButton")
+MinimizeBtn.Size = UDim2.new(0, 35, 0, 35)
+MinimizeBtn.Position = UDim2.new(1, -45, 0, 10)
+MinimizeBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 38)
+MinimizeBtn.Text = "—"
+MinimizeBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+MinimizeBtn.TextSize = 14
+MinimizeBtn.Font = Enum.Font.GothamBold
+MinimizeBtn.BorderSizePixel = 0
+MinimizeBtn.Parent = MainFrame
+local BtnCorner = Instance.new("UICorner")
+BtnCorner.CornerRadius = UDim.new(0, 8)
+BtnCorner.Parent = MinimizeBtn
+local OpenBtn = Instance.new("TextButton")
+OpenBtn.Size = UDim2.new(0, 50, 0, 50)
+OpenBtn.Position = UDim2.new(0.05, 0, 0.1, 0)
+OpenBtn.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
+OpenBtn.Text = "🛡️"
+OpenBtn.TextSize = 22
+OpenBtn.BorderSizePixel = 0
+OpenBtn.Visible = false
+OpenBtn.Parent = GuardScriptHub
+local OpenCorner = Instance.new("UICorner")
+OpenCorner.CornerRadius = UDim.new(1, 0)
+OpenCorner.Parent = OpenBtn
+local OpenStroke = Instance.new("UIStroke")
+OpenStroke.Color = Color3.fromRGB(60, 60, 65)
+OpenStroke.Thickness = 1.5
+OpenStroke.Parent = OpenBtn
+local function makeDraggable(frame)
+local UserInputService = game:GetService("UserInputService")
+local dragging, dragInput, dragStart, startPos
+frame.InputBegan:Connect(function(input)
+if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+dragging = true dragStart = input.Position startPos = frame.Position
+input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
+end
+end)
+frame.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end end)
+UserInputService.InputChanged:Connect(function(input)
+if input == dragInput and dragging then
+local delta = input.Position - dragStart
+frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+end)
+end
+makeDraggable(MainFrame)
+makeDraggable(OpenBtn)
+-- Trata o fechamento do círculo do FOV junto com o menu para não bugar na tela
+MinimizeBtn.MouseButton1Click:Connect(function()
+MainFrame.Visible = false
+OpenBtn.Visible = true
+CirculoFOV.Visible = false
+end)
+OpenBtn.MouseButton1Click:Connect(function()
+OpenBtn.Visible = false
+MainFrame.Visible = true
+if aimbotAtivado and raioFOV > 0 then CirculoFOV.Visible = true end
+end)
+MinimizeBtn.MouseEnter:Connect(function() MinimizeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50) MinimizeBtn.TextColor3 = Color3.fromRGB(255,255,255) end)
+MinimizeBtn.MouseLeave:Connect(function() MinimizeBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 38) MinimizeBtn.TextColor3 = Color3.fromRGB(200, 200, 200) end)
+OpenBtn.MouseEnter:Connect(function() OpenBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 38) end)
+OpenBtn.MouseLeave:Connect(function() OpenBtn.BackgroundColor3 = Color3.fromRGB(24, 24, 26) end)
