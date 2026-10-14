@@ -51,7 +51,7 @@ CirculoFOV.Filled = false
 ----------------------------------------------------------------
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 650, 0, 420)
+MainFrame.Size = USim2.new(0, 650, 0, 420)
 MainFrame.Position = UDim2.new(0.5, -325, 0.5, -210)
 MainFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
 MainFrame.BorderSizePixel = 0
@@ -160,7 +160,7 @@ BtnStroke2.Parent = AimbotBtn
 local FovBtn = Instance.new("TextButton")
 FovBtn.Name = "FovBtn"
 FovBtn.Size = UDim2.new(0, 220, 0, 50)
-FovBtn.Position = UDim2.new(0, 10, 0, 70) -- Posicionado na linha de baixo
+FovBtn.Position = UDim2.new(0, 10, 0, 70)
 FovBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 38)
 FovBtn.Text = "Tamanho do FOV: " .. raioFOV
 FovBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -220,7 +220,6 @@ end)
 -- LÓGICA DO WALLCHECK E FOV AIMBOT
 ----------------------------------------------------------------
 
--- Verifica se não há paredes bloqueando a visão da cabeça do alvo
 local function estaVisivel(posicaoAlvo, characterAlvo)
     if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("Head") then return false end
     
@@ -229,17 +228,13 @@ local function estaVisivel(posicaoAlvo, characterAlvo)
     
     local parametrosRaycast = RaycastParams.new()
     parametrosRaycast.FilterType = Enum.RaycastFilterType.Exclude
-    -- Ignora você mesmo e o próprio personagem do SCP que estamos testando
     parametrosRaycast.FilterDescendantsInstances = {LocalPlayer.Character, characterAlvo}
     parametrosRaycast.IgnoreWater = true
     
     local resultado = workspace:Raycast(origem, direcao, parametrosRaycast)
-    
-    -- Se não bateu em nada (parede), significa que está livre/visível
     return resultado == nil
 end
 
--- Encontra o SCP mais próximo da MIRA do jogador (dentro do círculo de FOV)
 local function pegarSCPMaisProximoDaMira()
     local menorDistanciaDaMira = math.huge
     local alvoSelecionado = nil
@@ -252,20 +247,20 @@ local function pegarSCPMaisProximoDaMira()
             local char = jogador.Character
             if char and char:FindFirstChild("Head") and char:FindFirstChildOfClass("Humanoid") then
                 if char.Humanoid.Health > 0 then
-                    -- Converte a posição 3D do SCP para a sua tela 2D
                     local posicaoTela, visivelNaTela = Camera:WorldToViewportPoint(char.Head.Position)
                     
                     if visivelNaTela then
-                        -- Calcula a distância física em pixels entre o centro da tela e o SCP
                         local centroTela = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
                         local distanciaMira = (Vector2.new(posicaoTela.X, posicaoTela.Y) - centroTela).Magnitude
                         
-- Verifica se o corte por círculo está ativo e se o alvo está dentro dele
-if raioFOV == 0 or distanciaMira <= raioFOV then
-if distanciaMira < menorDistanciaDaMira then
--- Executa o Wallcheck para confirmar se não tem paredes no meio
+                        -- CORREÇÃO DAQUI PARA BAIXO (Adicionado os traços de comentário)
+                        -- Verifica se o corte por círculo está ativo e se o alvo está dentro dele
+                        if raioFOV == 0 or distanciaMira <= raioFOV then
+                            if distanciaMira < menorDistanciaDaMira then
+                                -- Executa o Wallcheck para confirmar se não tem paredes no meio
 if estaVisivel(char.Head.Position, char) then
 menorDistanciaDaMira = distanciaMira
+alvoSelecionated = char.Head
 alvoSelecionado = char.Head
 end
 end
@@ -277,7 +272,6 @@ end
 end
 return alvoSelecionado
 end
--- Botão de Aimbot (Alternar ON/OFF)
 AimbotBtn.MouseButton1Click:Connect(function()
 aimbotAtivado = not aimbotAtivado
 if aimbotAtivado then
@@ -292,7 +286,6 @@ BtnStroke2.Color = Color3.fromRGB(50, 50, 55)
 CirculoFOV.Visible = false
 end
 end)
--- Botão Regulador de FOV (Trocar tamanhos)
 FovBtn.MouseButton1Click:Connect(function()
 fovIndex = fovIndex + 1
 if fovIndex > #fovTamanhos then fovIndex = 1 end
@@ -306,9 +299,7 @@ FovBtn.Text = "Tamanho do FOV: " .. raioFOV
 if aimbotAtivado then CirculoFOV.Visible = true end
 end
 end)
--- Loop principal do Aimbot e atualização do Círculo na Tela
 RunService.RenderStepped:Connect(function()
--- Atualiza a posição do círculo no centro exato da tela dinamicamente
 if CirculoFOV.Visible then
 CirculoFOV.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 end
@@ -322,7 +313,6 @@ end
 end
 end
 end)
-
 -- SISTEMA DE MINIMIZAR E ARRASTAR
 
 local MinimizeBtn = Instance.new("TextButton")
@@ -373,7 +363,6 @@ end)
 end
 makeDraggable(MainFrame)
 makeDraggable(OpenBtn)
--- Trata o fechamento do círculo do FOV junto com o menu para não bugar na tela
 MinimizeBtn.MouseButton1Click:Connect(function()
 MainFrame.Visible = false
 OpenBtn.Visible = true
