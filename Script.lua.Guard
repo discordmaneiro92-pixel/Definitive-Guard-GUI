@@ -51,7 +51,7 @@ CirculoFOV.Filled = false
 ----------------------------------------------------------------
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = USim2.new(0, 650, 0, 420)
+MainFrame.Size = UDim2.new(0, 650, 0, 420) -- CORRIGIDO: de USim2 para UDim2
 MainFrame.Position = UDim2.new(0.5, -325, 0.5, -210)
 MainFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 26)
 MainFrame.BorderSizePixel = 0
@@ -219,7 +219,6 @@ end)
 ----------------------------------------------------------------
 -- LÓGICA DO WALLCHECK E FOV AIMBOT
 ----------------------------------------------------------------
-
 local function estaVisivel(posicaoAlvo, characterAlvo)
     if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("Head") then return false end
     
@@ -253,17 +252,13 @@ local function pegarSCPMaisProximoDaMira()
                         local centroTela = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
                         local distanciaMira = (Vector2.new(posicaoTela.X, posicaoTela.Y) - centroTela).Magnitude
                         
-                        -- CORREÇÃO DAQUI PARA BAIXO (Adicionado os traços de comentário)
-                        -- Verifica se o corte por círculo está ativo e se o alvo está dentro dele
                         if raioFOV == 0 or distanciaMira <= raioFOV then
                             if distanciaMira < menorDistanciaDaMira then
-                                -- Executa o Wallcheck para confirmar se não tem paredes no meio
-if estaVisivel(char.Head.Position, char) then
-menorDistanciaDaMira = distanciaMira
-alvoSelecionated = char.Head
-alvoSelecionado = char.Head
-end
-end
+                                if estaVisivel(char.Head.Position, char) then
+                                    menorDistanciaDaMira = distanciaMira
+                                    alvoSelecionado = char.Head -- CORRIGIDO: removida linha duplicada com erro de digitação
+                                end
+                            end
 end
 end
 end
@@ -313,6 +308,7 @@ end
 end
 end
 end)
+
 -- SISTEMA DE MINIMIZAR E ARRASTAR
 
 local MinimizeBtn = Instance.new("TextButton")
@@ -348,7 +344,7 @@ local function makeDraggable(frame)
 local UserInputService = game:GetService("UserInputService")
 local dragging, dragInput, dragStart, startPos
 frame.InputBegan:Connect(function(input)
-if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+if input.UserInputType == Enum.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 dragging = true dragStart = input.Position startPos = frame.Position
 input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
 end
